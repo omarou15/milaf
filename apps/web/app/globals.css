@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root { --brand: #3B5BDB; --accent: #4F46E5; --bg: #06070c; --surface: #0d0f18; }
+* { box-sizing: border-box; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: #252a40; border-radius: 4px; }
