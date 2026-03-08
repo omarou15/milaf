@@ -1,18 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
+import { MODULES_REGISTRY } from "@/lib/modules/registry";
+import type { MarketplaceModule } from "@/lib/modules/registry";
 
-const CATEGORIES = ["Tout", "Énergie", "Immobilier", "RH", "Juridique", "Finance"];
+const CATEGORIES = ["Tout", "Finance", "Énergie", "Immobilier", "RH", "Juridique"];
 
-const MODULES = [
-  { id: "cee-france", name: "CEE France", emoji: "⚡", country: "🇫🇷", category: "Énergie", desc: "Dossier complet CEE : Devis, Facture, Attestation sur l'honneur, Fiche Opération Standardisée — conforme ADEME", tier: "Tier 1", tierColor: "#3B5BDB", docs: 4, installs: 1240, rating: 4.9, author: "Mi-Laf Officiel", official: true, price: 0, tags: ["CEE", "ADEME", "Artisan", "RGE"], hasTemplates: true },
-  { id: "maprimerénov", name: "MaPrimeRénov", emoji: "🏠", country: "🇫🇷", category: "Énergie", desc: "Dossier MPR complet : demande, devis réglementaire, justificatifs, facture conforme ANAH", tier: "Tier 2", tierColor: "#F59E0B", docs: 5, installs: 890, rating: 4.8, author: "Mi-Laf Officiel", official: true, price: 0, tags: ["ANAH", "Rénovation", "Subvention"], hasTemplates: false },
-  { id: "etat-des-lieux", name: "État des lieux", emoji: "🔑", country: "🇫🇷🇲🇦", category: "Immobilier", desc: "Entrée, sortie, inventaire contradictoire. Conforme loi ALUR. Version bilingue FR/AR disponible", tier: "Tier 1", tierColor: "#3B5BDB", docs: 3, installs: 2100, rating: 4.7, author: "Mi-Laf Officiel", official: true, price: 0, tags: ["Locatif", "ALUR", "Bilingue"], hasTemplates: false },
-  { id: "bail-habitation", name: "Bail d'habitation", emoji: "📋", country: "🇫🇷", category: "Immobilier", desc: "Contrat de bail résidentiel, avenant, notice d'information, règlement intérieur", tier: "Tier 1", tierColor: "#3B5BDB", docs: 4, installs: 1560, rating: 4.6, author: "Mi-Laf Officiel", official: true, price: 0, tags: ["Location", "Contrat", "ALUR"], hasTemplates: false },
-  { id: "contrat-travail", name: "Contrat de travail", emoji: "👔", country: "🇫🇷🇲🇦🇩🇿", category: "RH", desc: "CDI, CDD, Avenant, Rupture conventionnelle — modèles conformes Code du Travail", tier: "Tier 1", tierColor: "#3B5BDB", docs: 5, installs: 780, rating: 4.5, author: "LexDocs Pro", official: false, price: 9.9, tags: ["CDI", "CDD", "RH"], hasTemplates: false },
-  { id: "devis-facture", name: "Devis & Facture B2B", emoji: "💼", country: "🌍", category: "Finance", desc: "Devis professionnel, facture, avoir, bon de commande — multidevise, multilangue", tier: "Tier 1", tierColor: "#3B5BDB", docs: 4, installs: 3200, rating: 4.9, author: "Mi-Laf Officiel", official: true, price: 0, tags: ["International", "Facturation"], hasTemplates: false },
-  { id: "audit-energetique", name: "Audit Énergétique", emoji: "🌿", country: "🇲🇦🇩🇿🇹🇳", category: "Énergie", desc: "Audit bâtiment tertiaire & industriel. Méthode sur facture, inventaire, rapport GIZ", tier: "Tier 3", tierColor: "#10B981", docs: 8, installs: 230, rating: 4.8, author: "Tetra", official: false, price: 29, tags: ["MENA", "GIZ", "Tertiaire"], hasTemplates: false },
-  { id: "statuts-sas", name: "Statuts SAS / SARL", emoji: "⚖️", country: "🇫🇷", category: "Juridique", desc: "Statuts constitutifs, PV d'AG, rapport de gestion — pack création d'entreprise", tier: "Tier 2", tierColor: "#F59E0B", docs: 7, installs: 310, rating: 4.6, author: "JuriDocs", official: false, price: 19, tags: ["Création", "SAS", "SARL"], hasTemplates: false },
-];
+const MODULES = MODULES_REGISTRY.map(m => ({ ...m, desc: m.description }));
 
 const TIER_LABELS: Record<string, string> = { "Tier 1": "Word", "Tier 2": "PDF Form", "Tier 3": "Pixel Perfect" };
 
