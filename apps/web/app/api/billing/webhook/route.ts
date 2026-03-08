@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", { apiVersion: "2024-12-18.acacia" as any });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
 const PLAN_CREDITS: Record<string, number> = {
   starter: 100,

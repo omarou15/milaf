@@ -4,7 +4,7 @@ import Stripe from "stripe";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", { apiVersion: "2024-12-18.acacia" as any });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
 const PRICE_MAP: Record<string, { monthly: string; yearly: string }> = {
   starter: {
