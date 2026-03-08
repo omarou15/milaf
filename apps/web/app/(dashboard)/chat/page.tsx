@@ -35,16 +35,102 @@ function renderMd(text: string) {
 }
 
 const SUGGESTIONS = [
-  { icon: "📝", label: "Devis plomberie", prompt: "Crée un template de devis complet pour une entreprise de plomberie avec tous les champs nécessaires : client, travaux, matériaux, main d'œuvre, TVA" },
-  { icon: "📄", label: "Contrat de bail", prompt: "Génère un template de contrat de bail résidentiel complet avec toutes les clauses standards" },
-  { icon: "⚡", label: "Facture CEE", prompt: "Crée un template de facture pour les travaux CEE avec les champs réglementaires obligatoires" },
-  { icon: "🏗️", label: "Attestation travaux", prompt: "Génère une attestation de fin de travaux complète avec chantier, maître d'œuvre, réception" },
-  { icon: "⚖️", label: "Procuration", prompt: "Crée un template de procuration générale avec mandant, mandataire et objet précis" },
-  { icon: "🏥", label: "Certificat médical", prompt: "Génère un template de certificat médical d'aptitude avec patient, médecin et conclusion" },
+  { icon: "📄", label: "Facture instantanée", prompt: "Génère une facture pour M. Dupont, prestation plomberie, remplacement chauffe-eau 200L, main d'œuvre 450€ HT, matériel 800€ HT, TVA 20%, entreprise SAS PlombiPro, 12 rue des Lilas 75011 Paris, SIRET 123 456 789 00012" },
+  { icon: "📋", label: "Contrat de bail", prompt: "Génère un contrat de bail pour un T3 de 65m² au 45 avenue Victor Hugo, 75016 Paris, loyer 1450€/mois, charges 150€, propriétaire Mme Dubois Marie, locataire M. Martin Paul, date d'entrée 1er avril 2026" },
+  { icon: "✉️", label: "Mise en demeure", prompt: "Rédige une mise en demeure pour loyers impayés : propriétaire M. Bernard, locataire Mme Petit, 3 mois impayés (janvier à mars 2026), montant total 4200€, adresse du bien : 8 rue de la Paix 69001 Lyon" },
+  { icon: "📝", label: "Attestation travail", prompt: "Génère une attestation de travail pour Sophie Leroy, développeuse senior, employée depuis le 15/09/2021, CDI temps plein, entreprise TechCorp SAS, 25 boulevard Haussmann 75009 Paris" },
+  { icon: "⚡", label: "Devis CEE", prompt: "Crée un devis pour isolation des combles perdus, 80m² de laine de roche 300mm, R=7.5, client M. Renaud, 23 rue des Tilleuls 33000 Bordeaux, artisan RGE Iso-Plus SARL" },
+  { icon: "📊", label: "Template devis", prompt: "Crée un template de devis réutilisable pour une entreprise de peinture avec champs : client, adresse chantier, surface, type de peinture, nombre de couches, prix m², total" },
 ];
 
 function ActionCard({ action, onAccept }: { action: MiLafAction; onAccept: (a: MiLafAction) => void }) {
   const [done, setDone] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadName, setDownloadName] = useState("");
+  const [genError, setGenError] = useState<string | null>(null);
+
+  // ── GENERATE DOCUMENT (Tier instant) ──
+  if (action.type === "generate_document") {
+    const p = action.payload;
+
+    const handleGenerate = async () => {
+      setGenerating(true);
+      setGenError(null);
+      try {
+        const res = await fetch("/api/instant-generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            wordContent: p.content,
+            data: {},
+            filename: p.name || "document",
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Erreur");
+
+        const bytes = Uint8Array.from(atob(json.buffer), (c) => c.charCodeAt(0));
+        const blob = new Blob([bytes], { type: json.mime });
+        setDownloadUrl(URL.createObjectURL(blob));
+        setDownloadName(json.filename);
+
+        // Save to documents history
+        const docs = JSON.parse(localStorage.getItem("milaf_docs") || "[]");
+        docs.push({
+          id: crypto.randomUUID(),
+          name: p.name,
+          filename: json.filename,
+          source: "chat-instant",
+          createdAt: new Date().toISOString(),
+        });
+        localStorage.setItem("milaf_docs", JSON.stringify(docs));
+      } catch (e: any) {
+        setGenError(e.message);
+      } finally {
+        setGenerating(false);
+      }
+    };
+
+    return (
+      <div className="mt-3 border border-emerald-500/30 bg-emerald-500/[0.03] rounded-2xl overflow-hidden">
+        <div className="px-4 py-3 flex items-center gap-3 border-b border-white/5">
+          <span className="text-xl">📄</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-white truncate">{p.name}</div>
+            <div className="text-xs text-[#6b7290]">{p.description || "Document prêt à télécharger"}</div>
+          </div>
+          {downloadUrl ? (
+            <a href={downloadUrl} download={downloadName}
+              className="text-xs font-bold px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors flex-shrink-0 flex items-center gap-1.5">
+              ⬇ {downloadName}
+            </a>
+          ) : (
+            <button onClick={handleGenerate} disabled={generating}
+              className="text-xs font-bold px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl transition-colors flex-shrink-0 flex items-center gap-1.5">
+              {generating ? (
+                <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Génération…</>
+              ) : (
+                <>⬇ Télécharger .docx</>
+              )}
+            </button>
+          )}
+        </div>
+        {genError && (
+          <div className="px-4 py-2 text-xs text-red-400 bg-red-500/5">⚠ {genError}</div>
+        )}
+        {/* Preview first few lines of content */}
+        <div className="px-4 py-2 max-h-32 overflow-hidden relative">
+          <pre className="text-[10px] text-[#6b7290] font-mono whitespace-pre-wrap leading-relaxed">
+            {(p.content || "").split("\n").slice(0, 8).join("\n")}
+          </pre>
+          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#06070c]/80 to-transparent" />
+        </div>
+      </div>
+    );
+  }
+
+  // ── CREATE TEMPLATE / TAG DOCUMENT ──
   if (action.type !== "create_template" && action.type !== "tag_document") return null;
   const p = action.payload;
   return (
@@ -285,12 +371,12 @@ export default function ChatPage() {
           {messages.length === 0 && (
             <div className="text-center pt-6 pb-4">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600/20 to-purple-600/10 border border-indigo-500/20 flex items-center justify-center text-3xl mx-auto mb-4">✦</div>
-              <h2 className="text-xl font-bold text-white mb-2">Que voulez-vous créer ?</h2>
+              <h2 className="text-xl font-bold text-white mb-2">Décrivez, Mi-Laf génère.</h2>
               <p className="text-[#6b7290] text-sm max-w-md mx-auto leading-relaxed mb-6">
-                Décrivez votre document en français naturel. Mi-Laf génère le template complet,
-                balise vos fichiers existants, remplit vos documents.
+                Décrivez votre document en français naturel avec les données concrètes.
+                Mi-Laf génère le fichier .docx complet, prêt à télécharger.
                 <br />
-                <span className="text-indigo-400">1 crédit par message.</span>
+                <span className="text-emerald-400">★ Nouveau : génération instantanée avec vos données.</span>
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
                 {SUGGESTIONS.map(s => (
