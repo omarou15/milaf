@@ -60,6 +60,8 @@ function GenerateContent() {
       const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
       setDownloadUrl(URL.createObjectURL(blob));
       setFilename(json.filename);
+      const prev = parseInt(localStorage.getItem("milaf_docs_count") || "0");
+      localStorage.setItem("milaf_docs_count", String(prev + 1));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {
