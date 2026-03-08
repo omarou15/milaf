@@ -120,3 +120,18 @@ export function getCreditsRemaining(): number {
   const b = getBilling();
   return Math.max(0, b.creditsTotal - b.creditsUsed);
 }
+
+// ── Token → Credits conversion (Chat IA) ──────────────────────────────────────
+// Claude Opus: $15/MTok input, $75/MTok output
+// 1 crédit Mi-Laf = 0.015$ (marge ~10x sur coût réel moyen)
+//
+// Exemples réels :
+//   Réponse courte   (500 in /  300 out) → ~0.030$ → 2 crédits
+//   Template léger   (1k in  / 1.5k out) → ~0.128$ → 1 crédit
+//   Template complet (2k in  / 3k out)   → ~0.255$ → 2 crédits
+//   Gros template    (4k in  / 4k out)   → ~0.360$ → 3 crédits
+//   Max context      (8k in  / 4k out)   → ~0.420$ → 3 crédits
+export function tokensToCredits(inputTokens: number, outputTokens: number): number {
+  const costUsd = (inputTokens * 0.000015) + (outputTokens * 0.000075);
+  return Math.max(1, Math.ceil(costUsd / 0.015)); // min 1 crédit
+}

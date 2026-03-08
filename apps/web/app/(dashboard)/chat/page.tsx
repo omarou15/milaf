@@ -1,15 +1,17 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { consumeCredits, getCreditsRemaining } from "@/lib/billing/plans";
+import { consumeCredits, getCreditsRemaining, tokensToCredits, getBilling, saveBilling } from "@/lib/billing/plans";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Role = "user" | "assistant";
 interface MiLafAction { type: string; payload: any; }
+interface TokenInfo { inputTokens: number; outputTokens: number; creditsUsed: number; }
 interface Msg {
   id: string; role: Role; content: string;
   actions?: MiLafAction[];
   file?: { name: string };
   loading?: boolean;
+  tokenInfo?: TokenInfo;
 }
 
 function parseActions(text: string): { cleaned: string; actions: MiLafAction[] } {
@@ -102,6 +104,13 @@ function Bubble({ msg, onAccept }: { msg: Msg; onAccept: (a: MiLafAction) => voi
           <>
             <div className="text-sm text-[#c8cfe8] leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMd(msg.content) }} />
             {msg.actions?.map((a, i) => <ActionCard key={i} action={a} onAccept={onAccept} />)}
+            {msg.tokenInfo && (
+              <div className="mt-2 flex items-center gap-2 text-[10px] text-[#3a3f5c]">
+                <span>🪙 {msg.tokenInfo.creditsUsed} crédit{msg.tokenInfo.creditsUsed !== 1 ? "s" : ""} utilisé{msg.tokenInfo.creditsUsed !== 1 ? "s" : ""}</span>
+                <span>·</span>
+                <span>{msg.tokenInfo.inputTokens.toLocaleString()} in / {msg.tokenInfo.outputTokens.toLocaleString()} out tokens</span>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -147,13 +156,10 @@ export default function ChatPage() {
   const send = useCallback(async (text: string) => {
     if (!text.trim() || streaming) return;
 
-    // Check credits
+    // Pre-check: need at least 1 credit to start
     const remaining = getCreditsRemaining();
     if (remaining < 1) { setNoCredits(true); return; }
-
-    // Deduct 1 credit
-    consumeCredits(1);
-    setCredits(getCreditsRemaining());
+    // Note: we do NOT deduct upfront — we deduct the REAL amount after stream ends
 
     const userMsg: Msg = {
       id: `u_${Date.now()}`, role: "user", content: text,
@@ -181,12 +187,7 @@ export default function ChatPage() {
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
-        // Refund credit on error
-        const b = JSON.parse(localStorage.getItem("milaf_billing") ?? "{}");
-        if (b.creditsUsed > 0) {
-          b.creditsUsed = Math.max(0, b.creditsUsed - 1);
-          localStorage.setItem("milaf_billing", JSON.stringify(b));
-        }
+        // No upfront deduction so no refund needed
         setMessages(p => p.map(m => m.loading ? { ...m, loading: false, content: `❌ ${err.error ?? "Erreur"}` } : m));
         setStreaming(false); return;
       }
@@ -194,6 +195,8 @@ export default function ChatPage() {
       const reader = resp.body!.getReader();
       const dec = new TextDecoder();
       let buf = "", full = "";
+      let inputTokens = 0, outputTokens = 0;
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -204,6 +207,14 @@ export default function ChatPage() {
           const raw = line.slice(6); if (raw === "[DONE]") continue;
           try {
             const ev = JSON.parse(raw);
+            // Capture input tokens from message_start
+            if (ev.type === "message_start" && ev.message?.usage) {
+              inputTokens = ev.message.usage.input_tokens ?? 0;
+            }
+            // Capture output tokens from message_delta
+            if (ev.type === "message_delta" && ev.usage) {
+              outputTokens = ev.usage.output_tokens ?? 0;
+            }
             if (ev.type === "content_block_delta" && ev.delta?.text) {
               full += ev.delta.text;
               setMessages(p => p.map(m => m.loading ? { ...m, content: full } : m));
@@ -211,8 +222,24 @@ export default function ChatPage() {
           } catch {}
         }
       }
+
+      // Deduct REAL credits based on actual token consumption
+      const creditsToDeduct = tokensToCredits(inputTokens, outputTokens);
+      const canAfford = consumeCredits(creditsToDeduct);
+      if (!canAfford) {
+        // Partial — deduct what's left
+        const b = getBilling();
+        const left = Math.max(0, b.creditsTotal - b.creditsUsed);
+        if (left > 0) consumeCredits(left);
+      }
+      setCredits(getCreditsRemaining());
+
       const { cleaned, actions } = parseActions(full);
-      setMessages(p => p.map(m => m.loading ? { ...m, loading: false, content: cleaned || full, actions } : m));
+      // Attach token info to last assistant message
+      const tokenInfo = inputTokens > 0
+        ? `\n\n<milaf_tokens in="${inputTokens}" out="${outputTokens}" credits="${creditsToDeduct}"/>`
+        : "";
+      setMessages(p => p.map(m => m.loading ? { ...m, loading: false, content: (cleaned || full), actions, tokenInfo: { inputTokens, outputTokens, creditsUsed: creditsToDeduct } } : m));
     } catch (e: any) {
       setMessages(p => p.map(m => m.loading ? { ...m, loading: false, content: `❌ ${e.message}` } : m));
     } finally { setStreaming(false); }

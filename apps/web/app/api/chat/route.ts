@@ -3,7 +3,6 @@ import { auth } from "@clerk/nextjs/server";
 
 export const runtime = "edge";
 
-// ── System prompt ──────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `Tu es l'assistant IA de Mi-Laf ملف — la plateforme de génération documentaire.
 Tu travailles comme Lovable : l'utilisateur dit ce qu'il veut en français naturel, et TOI tu fais le travail complet, professionnel, sans demander à l'utilisateur de faire quoi que ce soit de technique.
 
@@ -23,19 +22,16 @@ RÈGLES ABSOLUES :
 - Tu parles toujours en français.
 - Quand tu produis un template, il est ENTIER, PRÊT À L'EMPLOI, professionnel.
 
-QUAND TU GÉNÈRES UN TEMPLATE (création ou balisage) :
-Produis ce bloc JSON exactement à la fin de ta réponse :
-
+QUAND TU GÉNÈRES UN TEMPLATE :
 <milaf_action type="create_template">
 {
   "name": "Nom du template",
   "tier": 1,
   "description": "Description courte",
   "fields": [
-    {"key": "nom_client", "label": "Nom du client", "type": "text", "required": true},
-    {"key": "date", "label": "Date", "type": "date", "required": true}
+    {"key": "nom_client", "label": "Nom du client", "type": "text", "required": true}
   ],
-  "wordContent": "Contenu complet du template avec {{nom_client}}, {{date}}, etc."
+  "wordContent": "Contenu complet avec {{nom_client}}, etc."
 }
 </milaf_action>
 
@@ -51,13 +47,8 @@ QUAND TU BALISES UN DOCUMENT UPLOADÉ :
 }
 </milaf_action>`;
 
-// ── Cost per chat message in Mi-Laf credits ───────────────────────────────
-// 1 message = 1 crédit (cheap enough to be accessible, sustainable for us)
-const CREDITS_PER_MESSAGE = 1;
-
 export async function POST(req: NextRequest) {
   try {
-    // 1. Auth check
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -65,27 +56,21 @@ export async function POST(req: NextRequest) {
 
     const { messages, templates } = await req.json();
 
-    // 2. Use Mi-Laf's own Anthropic key — never exposed to client
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
     if (!anthropicKey) {
-      return NextResponse.json(
-        { error: "Service IA temporairement indisponible. Contactez le support." },
-        { status: 503 }
-      );
+      return NextResponse.json({ error: "Service IA temporairement indisponible." }, { status: 503 });
     }
 
-    // 3. Credit check is done client-side for now (server-side with DB in v2)
-    // In production: deduct from DB before calling Claude, refund on error
-
-    // 4. Inject templates context
     const systemWithContext = templates?.length
-      ? `${SYSTEM_PROMPT}\n\nTEMPLATES EXISTANTS DE L'UTILISATEUR:\n${JSON.stringify(
-          templates.map((t: any) => ({ id: t.id, name: t.name, tier: t.tier, fields: t.fields?.length })),
-          null, 2
+      ? `${SYSTEM_PROMPT}\n\nTEMPLATES EXISTANTS:\n${JSON.stringify(
+          templates.map((t: any) => ({ id: t.id, name: t.name, tier: t.tier, fields: t.fields?.length }))
         )}`
       : SYSTEM_PROMPT;
 
-    // 5. Call Claude with Mi-Laf's key
+    // ── Stream with token counting ─────────────────────────────────────────
+    // Claude SSE sends message_start (with input_tokens) and message_delta (with output_tokens)
+    // We forward the full stream to client, who reads the token counts and deducts credits
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -105,13 +90,10 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       console.error("Claude API error:", err);
-      return NextResponse.json(
-        { error: "Erreur du service IA. Réessayez dans quelques instants." },
-        { status: 502 }
-      );
+      return NextResponse.json({ error: "Erreur du service IA. Réessayez." }, { status: 502 });
     }
 
-    // 6. Stream back to client
+    // Pass through the full SSE stream (includes message_start and message_delta with token counts)
     return new Response(response.body, {
       headers: {
         "Content-Type": "text/event-stream",
