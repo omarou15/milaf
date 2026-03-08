@@ -12,18 +12,11 @@ RUN pip3 install pymupdf --break-system-packages
 
 WORKDIR /app
 
-# Copier les packages partagés
-COPY packages/ ./packages/
-
-# Copier l'API
-COPY apps/api/package.json ./apps/api/
-WORKDIR /app/apps/api
+# Railway build context = apps/api/ (rootDirectory)
+COPY package.json ./
 RUN npm install
 
-COPY apps/api/ ./
-
-# Copier le module DPE (partagé avec web)
-COPY apps/web/lib/modules/ ./web/lib/modules/
+COPY . .
 
 RUN npm run build
 
