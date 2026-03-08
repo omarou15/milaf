@@ -2,19 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
 :root {
   --brand: #3B5BDB;
-  --accent: #4F46E5;
+  --accent: #f59e0b;
   --bg: #06070c;
   --surface: #0d0f18;
+  --border: #1e2235;
+  --muted: #6b7290;
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
 
 html, body {
-  background-color: #06070c;
+  background-color: var(--bg);
   color: #eceef5;
+  font-family: var(--font-body);
 }
+
+h1, h2, h3 { font-family: var(--font-display); }
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-thumb { background: #252a40; border-radius: 4px; }
+
+/* Grain overlay */
+.grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+}
+
+/* Glow effects */
+.glow-amber { box-shadow: 0 0 60px rgba(245, 158, 11, 0.08), 0 0 120px rgba(245, 158, 11, 0.04); }
+.glow-indigo { box-shadow: 0 0 60px rgba(59, 91, 219, 0.08), 0 0 120px rgba(59, 91, 219, 0.04); }
+
+/* Stagger animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.fade-up { animation: fadeUp 0.6s ease-out both; }
+.fade-in { animation: fadeIn 0.8s ease-out both; }
+.slide-in { animation: slideIn 0.5s ease-out both; }
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+.delay-4 { animation-delay: 0.4s; }
+.delay-5 { animation-delay: 0.5s; }
+.delay-6 { animation-delay: 0.6s; }
+.delay-7 { animation-delay: 0.7s; }
+
+/* Hover lift */
+.hover-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.hover-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }

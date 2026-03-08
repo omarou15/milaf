@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <ClerkProvider appearance={{ baseTheme: dark }}>
       <html lang="fr" className="dark">
-        <body className="min-h-[100dvh] bg-[#06070c] text-[#eceef5] overflow-hidden antialiased">
+        <body className="min-h-[100dvh] bg-[#06070c] text-[#eceef5] overflow-hidden antialiased" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
           {children}
         </body>
       </html>
