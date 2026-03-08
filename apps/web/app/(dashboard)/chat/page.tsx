@@ -210,7 +210,7 @@ export default function ChatPage() {
   const [streaming, setStreaming] = useState(false);
   const [credits, setCredits] = useState(0);
   const [noCredits, setNoCredits] = useState(false);
-  const [file, setFile] = useState<{ name: string; content: string } | null>(null);
+  const [file, setFile] = useState<{ name: string; content: string; isPdf?: boolean } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -224,9 +224,22 @@ export default function ChatPage() {
   }, [input]);
 
   const handleFile = (f: File) => {
-    const r = new FileReader();
-    r.onload = e => setFile({ name: f.name, content: (e.target?.result as string) ?? "" });
-    r.readAsText(f);
+    const isPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+
+    if (isPdf) {
+      // PDFs: read as base64, will be sent to PyMuPDF for extraction
+      const r = new FileReader();
+      r.onload = e => {
+        const base64 = (e.target?.result as string)?.split(",")[1] || "";
+        setFile({ name: f.name, content: base64, isPdf: true });
+      };
+      r.readAsDataURL(f);
+    } else {
+      // Text files: read as text
+      const r = new FileReader();
+      r.onload = e => setFile({ name: f.name, content: (e.target?.result as string) ?? "", isPdf: false });
+      r.readAsText(f);
+    }
   };
 
   const saveTemplate = useCallback((action: MiLafAction) => {
@@ -256,7 +269,35 @@ export default function ChatPage() {
     setInput(""); setFile(null); setStreaming(true);
 
     let userContent = text;
-    if (file) userContent = `[Fichier: ${file.name}]\n\nContenu:\n\`\`\`\n${file.content.slice(0, 8000)}\n\`\`\`\n\nDemande: ${text || "Balise ce document automatiquement et génère le template balisé complet"}`;
+    if (file) {
+      if (file.isPdf) {
+        // PDF: extract text via PyMuPDF on Railway, then send extracted text to Claude
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://milafapi-production.up.railway.app";
+          const extractRes = await fetch(`${apiUrl}/pdf/analyze`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pdfBase64: file.content, filename: file.name }),
+          });
+          if (extractRes.ok) {
+            const analysis = await extractRes.json();
+            // Build readable text from PyMuPDF analysis
+            const pages = analysis.pages || [];
+            const extractedText = pages.map((p: any, i: number) => {
+              const texts = (p.text_blocks || []).map((b: any) => b.text).join("\n");
+              return `--- Page ${i + 1} ---\n${texts}`;
+            }).join("\n\n");
+            userContent = `[Fichier PDF: ${file.name}] (${analysis.page_count} pages, texte extrait par PyMuPDF)\n\n${extractedText.slice(0, 12000)}\n\nDemande: ${text || "Balise ce document automatiquement et génère le template balisé complet"}`;
+          } else {
+            userContent = `[Fichier PDF: ${file.name}] (extraction échouée — analyse le nom et décris un template standard)\n\nDemande: ${text || "Génère un template standard pour ce type de document"}`;
+          }
+        } catch {
+          userContent = `[Fichier PDF: ${file.name}] (extraction indisponible)\n\nDemande: ${text || "Génère un template standard pour ce type de document"}`;
+        }
+      } else {
+        userContent = `[Fichier: ${file.name}]\n\nContenu:\n\`\`\`\n${file.content.slice(0, 8000)}\n\`\`\`\n\nDemande: ${text || "Balise ce document automatiquement et génère le template balisé complet"}`;
+      }
+    }
 
     const apiMsgs = [
       ...messages.filter(m => !m.loading).map(m => ({ role: m.role, content: m.content })),
