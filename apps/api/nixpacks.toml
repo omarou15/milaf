@@ -1,0 +1,14 @@
+[phases.setup]
+aptPkgs = ["python3", "python3-pip", "python3-dev", "gcc"]
+
+[phases.install]
+cmds = [
+  "pip3 install pymupdf --break-system-packages",
+  "npm install"
+]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "node dist/index.js"
