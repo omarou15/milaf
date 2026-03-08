@@ -6,7 +6,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { userId } = await auth();
   if (!userId) redirect("/login");
   return (
-    <div className="flex h-[100dvh] bg-[#06070c] overflow-hidden">
+    <div className="flex h-[100dvh] bg-page overflow-hidden">
       <Sidebar />
       <main className="flex-1 overflow-y-auto min-w-0">{children}</main>
     </div>
