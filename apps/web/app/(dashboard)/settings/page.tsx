@@ -246,7 +246,10 @@ export default function SettingsPage() {
                 <CopyBtn text="https://milaf.vercel.app/api/billing/webhook" />
               </div>
               <div className="mt-3 text-[10px] text-[#6b7290]">
-                Événements requis : <code className="text-indigo-300">checkout.session.completed</code>, <code className="text-indigo-300">customer.subscription.deleted</code>, <code className="text-indigo-300">invoice.payment_failed</code>
+                {"Événements requis : "}
+                <code className="text-indigo-300">checkout.session.completed</code>{", "}
+                <code className="text-indigo-300">customer.subscription.deleted</code>{", "}
+                <code className="text-indigo-300">invoice.payment_failed</code>
               </div>
             </div>
 
