@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { getBilling, consumeCredits, PLANS } from "@/lib/billing/plans";
+import { consumeCredits, getCreditsRemaining } from "@/lib/billing/plans";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Role = "user" | "assistant";
@@ -8,7 +8,7 @@ interface MiLafAction { type: string; payload: any; }
 interface Msg {
   id: string; role: Role; content: string;
   actions?: MiLafAction[];
-  file?: { name: string; type: string };
+  file?: { name: string };
   loading?: boolean;
 }
 
@@ -34,11 +34,11 @@ function renderMd(text: string) {
 
 const SUGGESTIONS = [
   { icon: "📝", label: "Devis plomberie", prompt: "Crée un template de devis complet pour une entreprise de plomberie avec tous les champs nécessaires : client, travaux, matériaux, main d'œuvre, TVA" },
-  { icon: "📄", label: "Contrat de bail", prompt: "Génère un template de contrat de bail résidentiel complet avec toutes les clauses standards (bailleur, locataire, loyer, charges, état des lieux)" },
-  { icon: "⚡", label: "Facture CEE", prompt: "Crée un template de facture pour les travaux CEE (Certificats d'Économies d'Énergie) avec les champs réglementaires obligatoires" },
-  { icon: "🏗️", label: "Attestation travaux", prompt: "Génère une attestation de fin de travaux complète avec les informations chantier, maître d'œuvre, description des travaux et réception" },
-  { icon: "⚖️", label: "Procuration", prompt: "Crée un template de procuration générale avec mandant, mandataire, objet précis de la procuration et durée de validité" },
-  { icon: "🏥", label: "Certificat médical", prompt: "Génère un template de certificat médical d'aptitude avec informations patient, médecin, objet du certificat et conclusion médicale" },
+  { icon: "📄", label: "Contrat de bail", prompt: "Génère un template de contrat de bail résidentiel complet avec toutes les clauses standards" },
+  { icon: "⚡", label: "Facture CEE", prompt: "Crée un template de facture pour les travaux CEE avec les champs réglementaires obligatoires" },
+  { icon: "🏗️", label: "Attestation travaux", prompt: "Génère une attestation de fin de travaux complète avec chantier, maître d'œuvre, réception" },
+  { icon: "⚖️", label: "Procuration", prompt: "Crée un template de procuration générale avec mandant, mandataire et objet précis" },
+  { icon: "🏥", label: "Certificat médical", prompt: "Génère un template de certificat médical d'aptitude avec patient, médecin et conclusion" },
 ];
 
 function ActionCard({ action, onAccept }: { action: MiLafAction; onAccept: (a: MiLafAction) => void }) {
@@ -51,7 +51,7 @@ function ActionCard({ action, onAccept }: { action: MiLafAction; onAccept: (a: M
         <span className="text-xl">{action.type === "tag_document" ? "🏷️" : "📝"}</span>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-bold text-white truncate">{p.name}</div>
-          <div className="text-xs text-[#6b7290]">{p.fields?.length ?? 0} champs · Tier {p.tier ?? 1}{action.type === "tag_document" ? " · Balisé par IA" : " · Créé par IA"}</div>
+          <div className="text-xs text-[#6b7290]">{p.fields?.length ?? 0} champs · Tier {p.tier ?? 1} · Généré par Mi-Laf IA</div>
         </div>
         {done ? (
           <span className="text-xs text-emerald-400 font-semibold flex-shrink-0">✓ Enregistré</span>
@@ -80,8 +80,7 @@ function Bubble({ msg, onAccept }: { msg: Msg; onAccept: (a: MiLafAction) => voi
       <div className="max-w-[78%] bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed">
         {msg.file && (
           <div className="flex items-center gap-2 mb-2 px-2.5 py-1.5 bg-white/10 rounded-xl">
-            <span className="text-base">📎</span>
-            <span className="text-xs text-white/80 truncate">{msg.file.name}</span>
+            <span>📎</span><span className="text-xs text-white/80 truncate">{msg.file.name}</span>
           </div>
         )}
         {msg.content}
@@ -90,14 +89,14 @@ function Bubble({ msg, onAccept }: { msg: Msg; onAccept: (a: MiLafAction) => voi
   );
   return (
     <div className="flex gap-3 mb-5">
-      <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5 shadow-lg shadow-indigo-900/30">M</div>
+      <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">M</div>
       <div className="flex-1 max-w-[85%]">
         {msg.loading ? (
           <div className="flex items-center gap-2 py-2">
             <div className="flex gap-1">
               {[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: `${i*0.15}s` }} />)}
             </div>
-            <span className="text-xs text-[#6b7290]">Mi-Laf analyse et rédige…</span>
+            <span className="text-xs text-[#6b7290]">Mi-Laf génère…</span>
           </div>
         ) : (
           <>
@@ -114,20 +113,15 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [noKey, setNoKey] = useState(false);
-  const [file, setFile] = useState<{ name: string; content: string; type: string } | null>(null);
+  const [credits, setCredits] = useState(0);
+  const [noCredits, setNoCredits] = useState(false);
+  const [file, setFile] = useState<{ name: string; content: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    const k = localStorage.getItem("milaf_claude_api_key") ?? "";
-    if (k) setApiKey(k); else setNoKey(true);
-  }, []);
-
+  useEffect(() => { setCredits(getCreditsRemaining()); }, [messages]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-
   useEffect(() => {
     if (!taRef.current) return;
     taRef.current.style.height = "auto";
@@ -136,12 +130,11 @@ export default function ChatPage() {
 
   const handleFile = (f: File) => {
     const r = new FileReader();
-    r.onload = e => setFile({ name: f.name, content: (e.target?.result as string) ?? "", type: f.type });
+    r.onload = e => setFile({ name: f.name, content: (e.target?.result as string) ?? "" });
     r.readAsText(f);
   };
 
   const saveTemplate = useCallback((action: MiLafAction) => {
-    if (action.type !== "create_template" && action.type !== "tag_document") return;
     const p = action.payload;
     const templates = JSON.parse(localStorage.getItem("milaf_templates") ?? "[]");
     localStorage.setItem("milaf_templates", JSON.stringify([...templates, {
@@ -149,21 +142,29 @@ export default function ChatPage() {
       fields: p.fields ?? [], wordContent: p.wordContent ?? p.taggedContent ?? "",
       description: p.description ?? "", createdAt: new Date().toISOString(), source: "ai",
     }]));
-    consumeCredits(2);
   }, []);
 
   const send = useCallback(async (text: string) => {
     if (!text.trim() || streaming) return;
-    const key = apiKey || localStorage.getItem("milaf_claude_api_key") || "";
-    if (!key) { setNoKey(true); return; }
 
-    const userMsg: Msg = { id: `u_${Date.now()}`, role: "user", content: text, file: file ? { name: file.name, type: file.type } : undefined };
+    // Check credits
+    const remaining = getCreditsRemaining();
+    if (remaining < 1) { setNoCredits(true); return; }
+
+    // Deduct 1 credit
+    consumeCredits(1);
+    setCredits(getCreditsRemaining());
+
+    const userMsg: Msg = {
+      id: `u_${Date.now()}`, role: "user", content: text,
+      file: file ? { name: file.name } : undefined,
+    };
     const loadMsg: Msg = { id: `a_${Date.now()}`, role: "assistant", content: "", loading: true };
     setMessages(p => [...p, userMsg, loadMsg]);
     setInput(""); setFile(null); setStreaming(true);
 
     let userContent = text;
-    if (file) userContent = `[Fichier: ${file.name}]\n\nContenu:\n\`\`\`\n${file.content.slice(0, 8000)}\n\`\`\`\n\nDemande: ${text || "Balise ce document automatiquement"}`;
+    if (file) userContent = `[Fichier: ${file.name}]\n\nContenu:\n\`\`\`\n${file.content.slice(0, 8000)}\n\`\`\`\n\nDemande: ${text || "Balise ce document automatiquement et génère le template balisé complet"}`;
 
     const apiMsgs = [
       ...messages.filter(m => !m.loading).map(m => ({ role: m.role, content: m.content })),
@@ -175,11 +176,17 @@ export default function ChatPage() {
       const resp = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMsgs, apiKey: key, templates }),
+        body: JSON.stringify({ messages: apiMsgs, templates }),
       });
 
       if (!resp.ok) {
-        const err = await resp.json();
+        const err = await resp.json().catch(() => ({}));
+        // Refund credit on error
+        const b = JSON.parse(localStorage.getItem("milaf_billing") ?? "{}");
+        if (b.creditsUsed > 0) {
+          b.creditsUsed = Math.max(0, b.creditsUsed - 1);
+          localStorage.setItem("milaf_billing", JSON.stringify(b));
+        }
         setMessages(p => p.map(m => m.loading ? { ...m, loading: false, content: `❌ ${err.error ?? "Erreur"}` } : m));
         setStreaming(false); return;
       }
@@ -194,8 +201,7 @@ export default function ChatPage() {
         const lines = buf.split("\n"); buf = lines.pop() ?? "";
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
-          const raw = line.slice(6);
-          if (raw === "[DONE]") continue;
+          const raw = line.slice(6); if (raw === "[DONE]") continue;
           try {
             const ev = JSON.parse(raw);
             if (ev.type === "content_block_delta" && ev.delta?.text) {
@@ -210,34 +216,39 @@ export default function ChatPage() {
     } catch (e: any) {
       setMessages(p => p.map(m => m.loading ? { ...m, loading: false, content: `❌ ${e.message}` } : m));
     } finally { setStreaming(false); }
-  }, [apiKey, messages, streaming, file]);
+  }, [messages, streaming, file]);
 
   return (
     <div className="flex flex-col h-full bg-[#06070c]">
-      {/* No-key banner */}
-      {noKey && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-300 flex-wrap">
-          <span>⚠️ Clé API Claude requise.</span>
-          <button onClick={() => {
-            const k = prompt("Clé API Claude (sk-ant-…) :");
-            if (k) { localStorage.setItem("milaf_claude_api_key", k); setApiKey(k); setNoKey(false); }
-          }} className="font-semibold underline">Configurer</button>
-          <a href="/settings" className="ml-auto hover:text-amber-200">Paramètres →</a>
+
+      {/* No credits banner */}
+      {noCredits && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-red-500/10 border-b border-red-500/20 text-xs text-red-300 flex-wrap">
+          <span>⚡ Crédits épuisés.</span>
+          <a href="/settings" className="font-bold underline hover:text-red-200">Recharger les crédits →</a>
+          <button onClick={() => setNoCredits(false)} className="ml-auto text-red-400 hover:text-red-200">✕</button>
         </div>
       )}
 
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#1e2235]">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-indigo-900/30">M</div>
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center text-white text-sm font-bold">M</div>
           <div>
             <div className="text-sm font-bold text-white">Mi-Laf IA</div>
             <div className="text-[10px] text-[#6b7290]">Décrivez · Uploadez · Générez</div>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-[10px] text-emerald-400 font-semibold">Claude Opus · Tokens complets</span>
+        <div className="flex items-center gap-3">
+          {/* Credits counter */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#0d0f18] border border-[#1e2235] rounded-xl">
+            <span className="text-[10px] text-[#6b7290]">Crédits</span>
+            <span className={`text-xs font-bold ${credits < 5 ? "text-red-400" : "text-white"}`}>{credits}</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] text-emerald-400 font-semibold">Claude Opus</span>
+          </div>
         </div>
       </div>
 
@@ -249,9 +260,10 @@ export default function ChatPage() {
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600/20 to-purple-600/10 border border-indigo-500/20 flex items-center justify-center text-3xl mx-auto mb-4">✦</div>
               <h2 className="text-xl font-bold text-white mb-2">Que voulez-vous créer ?</h2>
               <p className="text-[#6b7290] text-sm max-w-md mx-auto leading-relaxed mb-6">
-                Décrivez votre document en langage naturel. Mi-Laf génère le template complet,
-                balise vos fichiers existants, et remplit vos documents — sans que vous ayez à
-                comprendre la technique.
+                Décrivez votre document en français naturel. Mi-Laf génère le template complet,
+                balise vos fichiers existants, remplit vos documents.
+                <br />
+                <span className="text-indigo-400">1 crédit par message.</span>
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
                 {SUGGESTIONS.map(s => (
@@ -265,7 +277,7 @@ export default function ChatPage() {
               <button onClick={() => fileRef.current?.click()}
                 className="flex items-center justify-center gap-2 w-full px-4 py-3 border border-dashed border-[#1e2235] hover:border-indigo-500/40 hover:bg-indigo-500/5 rounded-2xl cursor-pointer transition-all group">
                 <span className="text-lg">📎</span>
-                <span className="text-sm text-[#6b7290] group-hover:text-indigo-300 transition-colors">Uploader un document à baliser automatiquement</span>
+                <span className="text-sm text-[#6b7290] group-hover:text-indigo-300 transition-colors">Uploader un document existant à baliser automatiquement</span>
               </button>
             </div>
           )}
@@ -293,7 +305,7 @@ export default function ChatPage() {
             </button>
             <textarea ref={taRef} value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }}
-              placeholder="Décrivez le document, uploadez un fichier, ou demandez une génération…"
+              placeholder="Décrivez le document, uploadez un fichier à baliser…"
               rows={1} disabled={streaming}
               className="flex-1 bg-transparent text-sm text-white placeholder-[#3a3f5c] resize-none outline-none leading-relaxed py-1.5"
               style={{ scrollbarWidth: "none", maxHeight: "160px" }} />
@@ -304,7 +316,10 @@ export default function ChatPage() {
                 : <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>}
             </button>
           </div>
-          <p className="text-[10px] text-[#3a3f5c] text-center mt-2">Entrée pour envoyer · Maj+Entrée pour retour à la ligne · Claude Opus consomme les tokens pour un résultat complet</p>
+          <p className="text-[10px] text-[#3a3f5c] text-center mt-2">
+            1 crédit par message · {credits} crédit{credits !== 1 ? "s" : ""} restant{credits !== 1 ? "s" : ""}
+            {credits < 10 && <> · <a href="/settings" className="text-indigo-400 hover:text-indigo-300">Recharger</a></>}
+          </p>
         </div>
       </div>
       <input ref={fileRef} type="file" className="hidden" accept=".txt,.docx,.pdf,.doc,.html,.md,.csv"
