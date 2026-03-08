@@ -1,24 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import Stripe from "stripe";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
-
 const PRICE_MAP: Record<string, { monthly: string; yearly: string }> = {
-  starter: {
-    monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY || "",
-    yearly: process.env.STRIPE_PRICE_STARTER_YEARLY || "",
-  },
-  pro: {
-    monthly: process.env.STRIPE_PRICE_PRO_MONTHLY || "",
-    yearly: process.env.STRIPE_PRICE_PRO_YEARLY || "",
-  },
-  business: {
-    monthly: process.env.STRIPE_PRICE_BUSINESS_MONTHLY || "",
-    yearly: process.env.STRIPE_PRICE_BUSINESS_YEARLY || "",
-  },
+  starter: { monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY || "", yearly: process.env.STRIPE_PRICE_STARTER_YEARLY || "" },
+  pro: { monthly: process.env.STRIPE_PRICE_PRO_MONTHLY || "", yearly: process.env.STRIPE_PRICE_PRO_YEARLY || "" },
+  business: { monthly: process.env.STRIPE_PRICE_BUSINESS_MONTHLY || "", yearly: process.env.STRIPE_PRICE_BUSINESS_YEARLY || "" },
 };
 
 export async function POST(req: NextRequest) {
@@ -26,20 +14,20 @@ export async function POST(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json({ error: "Stripe non configuré. Contactez le support." }, { status: 503 });
-    }
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) return NextResponse.json({ error: "Stripe non configuré", demo: true }, { status: 503 });
 
     const { planId, cycle = "monthly" } = await req.json();
-
     const prices = PRICE_MAP[planId];
     if (!prices) return NextResponse.json({ error: "Plan invalide" }, { status: 400 });
 
     const priceId = cycle === "yearly" ? prices.yearly : prices.monthly;
-    if (!priceId) return NextResponse.json({ error: "Prix non configuré pour ce plan" }, { status: 400 });
+    if (!priceId) return NextResponse.json({ error: "Prix non configuré", demo: true }, { status: 400 });
+
+    const Stripe = (await import("stripe")).default;
+    const stripe = new Stripe(key);
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
-
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],

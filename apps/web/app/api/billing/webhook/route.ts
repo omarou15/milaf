@@ -1,104 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
-
-const PLAN_CREDITS: Record<string, number> = {
-  starter: 100,
-  pro: 500,
-  business: 2000,
-};
+const PLAN_CREDITS: Record<string, number> = { starter: 100, pro: 500, business: 2000 };
 
 export async function POST(req: NextRequest) {
   try {
+    const key = process.env.STRIPE_SECRET_KEY;
+    const whSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!key || !whSecret) return NextResponse.json({ error: "Not configured" }, { status: 400 });
+
+    const Stripe = (await import("stripe")).default;
+    const stripe = new Stripe(key);
+    const { db } = await import("@/lib/db");
+    const { users } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+
     const body = await req.text();
     const sig = req.headers.get("stripe-signature");
+    if (!sig) return NextResponse.json({ error: "No signature" }, { status: 400 });
 
-    if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
-      return NextResponse.json({ error: "Webhook non configuré" }, { status: 400 });
-    }
-
-    let event: Stripe.Event;
-    try {
-      event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-    } catch (err: any) {
-      console.error("[webhook] Signature verification failed:", err.message);
-      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-    }
-
+    const event = stripe.webhooks.constructEvent(body, sig, whSecret);
     console.log(`[webhook] ${event.type}`);
 
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const clerkId = session.metadata?.clerkId || session.client_reference_id;
-        const planId = session.metadata?.planId;
-
-        if (clerkId && planId) {
-          const credits = PLAN_CREDITS[planId] || 10;
-          await db.update(users).set({
-            plan: planId as any,
-            creditsTotal: credits,
-            creditsUsed: 0,
-            updatedAt: new Date(),
-          }).where(eq(users.clerkId, clerkId));
-          console.log(`[webhook] User ${clerkId} upgraded to ${planId} (${credits} credits)`);
-        }
-        break;
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as any;
+      const clerkId = session.metadata?.clerkId || session.client_reference_id;
+      const planId = session.metadata?.planId;
+      if (clerkId && planId) {
+        await db.update(users).set({
+          plan: planId as any, creditsTotal: PLAN_CREDITS[planId] || 10, creditsUsed: 0, updatedAt: new Date(),
+        }).where(eq(users.clerkId, clerkId));
       }
+    }
 
-      case "customer.subscription.updated": {
-        const sub = event.data.object as Stripe.Subscription;
-        // Handle plan changes, renewals
-        console.log(`[webhook] Subscription updated: ${sub.id}, status: ${sub.status}`);
-        break;
+    if (event.type === "customer.subscription.deleted") {
+      const sub = event.data.object as any;
+      if (sub.metadata?.clerkId) {
+        await db.update(users).set({ plan: "free" as any, creditsTotal: 10, creditsUsed: 0, updatedAt: new Date() }).where(eq(users.clerkId, sub.metadata.clerkId));
       }
+    }
 
-      case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
-        const clerkId = sub.metadata?.clerkId;
-        if (clerkId) {
-          await db.update(users).set({
-            plan: "free",
-            creditsTotal: 10,
-            creditsUsed: 0,
-            updatedAt: new Date(),
-          }).where(eq(users.clerkId, clerkId));
-          console.log(`[webhook] User ${clerkId} downgraded to free`);
+    if (event.type === "invoice.payment_succeeded") {
+      const invoice = event.data.object as any;
+      const subId = typeof invoice.subscription === "string" ? invoice.subscription : null;
+      if (subId) {
+        const sub = await stripe.subscriptions.retrieve(subId);
+        if (sub.metadata?.clerkId && sub.metadata?.planId) {
+          await db.update(users).set({ creditsUsed: 0, creditsTotal: PLAN_CREDITS[sub.metadata.planId] || 10, updatedAt: new Date() }).where(eq(users.clerkId, sub.metadata.clerkId));
         }
-        break;
-      }
-
-      case "invoice.payment_succeeded": {
-        // Monthly renewal — reset credits
-        const invoice = event.data.object as Stripe.Invoice;
-        const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
-        if (subId) {
-          const sub = await stripe.subscriptions.retrieve(subId);
-          const clerkId = sub.metadata?.clerkId;
-          const planId = sub.metadata?.planId;
-          if (clerkId && planId) {
-            const credits = PLAN_CREDITS[planId] || 10;
-            await db.update(users).set({
-              creditsUsed: 0,
-              creditsTotal: credits,
-              updatedAt: new Date(),
-            }).where(eq(users.clerkId, clerkId));
-            console.log(`[webhook] Credits reset for ${clerkId}: ${credits}`);
-          }
-        }
-        break;
       }
     }
 
     return NextResponse.json({ received: true });
   } catch (err: any) {
-    console.error("[webhook] Error:", err);
+    console.error("[webhook]", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

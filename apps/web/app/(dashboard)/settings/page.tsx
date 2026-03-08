@@ -73,8 +73,6 @@ export default function SettingsPage() {
       if (data.url) window.location.href = data.url;
     } catch {}
   };
-    setUpgrading(null);
-  };
 
   if (!billing) return null;
 
