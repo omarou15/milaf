@@ -15,7 +15,7 @@ pdfGenerateRouter.post("/", async (c) => {
     const { template, data, options = {} } = await c.req.json();
 
     if (!template || !data) {
-      return c.json({ error: "template et data requis" }, 400);
+      return c.json({ error: "template et data requis" }, 400 as any);
     }
 
     // Router vers le bon générateur selon le template
@@ -26,7 +26,7 @@ pdfGenerateRouter.post("/", async (c) => {
         pdfBuffer = await generateDPE(data);
         break;
       default:
-        return c.json({ error: `Template inconnu: ${template}` }, 400);
+        return c.json({ error: `Template inconnu: ${template}` }, 400 as any);
     }
 
     // Retourner le PDF en base64 (pour stockage R2 côté web)
@@ -40,7 +40,7 @@ pdfGenerateRouter.post("/", async (c) => {
     });
   } catch (err: any) {
     console.error("Erreur génération PDF:", err);
-    return c.json({ error: err.message }, 500);
+    return c.json({ error: err.message }, 500 as any);
   }
 });
 
@@ -58,7 +58,7 @@ pdfGenerateRouter.post("/stream", async (c) => {
         pdfBuffer = await generateDPE(data);
         break;
       default:
-        return c.json({ error: `Template inconnu: ${template}` }, 400);
+        return c.json({ error: `Template inconnu: ${template}` }, 400 as any);
     }
 
     return new Response(pdfBuffer, {
@@ -68,7 +68,7 @@ pdfGenerateRouter.post("/stream", async (c) => {
       },
     });
   } catch (err: any) {
-    return c.json({ error: err.message }, 500);
+    return c.json({ error: err.message }, 500 as any);
   }
 });
 

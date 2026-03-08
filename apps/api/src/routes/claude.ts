@@ -17,7 +17,7 @@ claudeRouter.post("/stream", async (c) => {
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return c.json({ error: "ANTHROPIC_API_KEY non configurée" }, 500);
+      return c.json({ error: "ANTHROPIC_API_KEY non configurée" }, 500 as any);
     }
 
     const body: any = {
@@ -40,7 +40,7 @@ claudeRouter.post("/stream", async (c) => {
 
     if (!upstream.ok) {
       const err = await upstream.text();
-      return c.json({ error: err }, upstream.status);
+      return c.json({ error: err }, upstream.status as any);
     }
 
     // Pass-through du stream SSE
@@ -53,7 +53,7 @@ claudeRouter.post("/stream", async (c) => {
       },
     });
   } catch (err: any) {
-    return c.json({ error: err.message }, 500);
+    return c.json({ error: err.message }, 500 as any);
   }
 });
 
@@ -67,7 +67,7 @@ claudeRouter.post("/analyze-pdf", async (c) => {
     const { analysis, target_page = 1, template_name } = await c.req.json();
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return c.json({ error: "ANTHROPIC_API_KEY manquante" }, 500);
+    if (!apiKey) return c.json({ error: "ANTHROPIC_API_KEY manquante" }, 500 as any);
 
     const pageData = analysis.pages[target_page - 1];
 
@@ -107,6 +107,6 @@ ${JSON.stringify(pageData, null, 2).slice(0, 8000)}`;
 
     return c.json({ success: true, code, tokens_used: result.usage });
   } catch (err: any) {
-    return c.json({ error: err.message }, 500);
+    return c.json({ error: err.message }, 500 as any);
   }
 });

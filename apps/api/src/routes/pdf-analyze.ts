@@ -17,7 +17,7 @@ pdfAnalyzeRouter.post("/", async (c) => {
     const file = body["file"] as File;
 
     if (!file) {
-      return c.json({ error: "Fichier PDF manquant" }, 400);
+      return c.json({ error: "Fichier PDF manquant" }, 400 as any);
     }
 
     // Sauvegarder le PDF temporairement
@@ -35,7 +35,7 @@ pdfAnalyzeRouter.post("/", async (c) => {
     return c.json(result);
   } catch (err: any) {
     console.error("Erreur analyse PDF:", err);
-    return c.json({ error: err.message }, 500);
+    return c.json({ error: err.message }, 500 as any);
   }
 });
 
@@ -47,7 +47,7 @@ pdfAnalyzeRouter.post("/", async (c) => {
 pdfAnalyzeRouter.post("/url", async (c) => {
   try {
     const { url } = await c.req.json();
-    if (!url) return c.json({ error: "URL manquante" }, 400);
+    if (!url) return c.json({ error: "URL manquante" }, 400 as any);
 
     // Télécharger le PDF
     const response = await fetch(url);
@@ -61,7 +61,7 @@ pdfAnalyzeRouter.post("/url", async (c) => {
 
     return c.json(result);
   } catch (err: any) {
-    return c.json({ error: err.message }, 500);
+    return c.json({ error: err.message }, 500 as any);
   }
 });
 
