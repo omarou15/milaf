@@ -17,7 +17,7 @@ interface Msg {
 function parseActions(text: string): { cleaned: string; actions: MiLafAction[] } {
   const actions: MiLafAction[] = [];
   const cleaned = text.replace(/<milaf_action type="([^"]+)">([\s\S]*?)<\/milaf_action>/g, (_, type, raw) => {
-    try { actions.push({ type, payload: JSON.parse(raw.trim()) }); } catch {}
+    try { actions.push({ type, payload: JSON.parse(raw.trim()) }); } catch (e) {}
     return "";
   }).trim();
   return { cleaned, actions };
@@ -291,7 +291,7 @@ export default function ChatPage() {
           } else {
             userContent = `[Fichier PDF: ${file.name}] (extraction échouée — analyse le nom et décris un template standard)\n\nDemande: ${text || "Génère un template standard pour ce type de document"}`;
           }
-        } catch {
+        } catch (e) {
           userContent = `[Fichier PDF: ${file.name}] (extraction indisponible)\n\nDemande: ${text || "Génère un template standard pour ce type de document"}`;
         }
       } else {
@@ -346,7 +346,7 @@ export default function ChatPage() {
               full += ev.delta.text;
               setMessages(p => p.map(m => m.loading ? { ...m, content: full } : m));
             }
-          } catch {}
+          } catch (e) {}
         }
       }
 

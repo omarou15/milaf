@@ -18,20 +18,18 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider appearance={{ baseTheme: dark }}>
-      <html lang="fr" className="dark" suppressHydrationWarning>
+      <html lang="fr" suppressHydrationWarning>
         <head>
-          {/* Prevent flash of wrong theme */}
           <script dangerouslySetInnerHTML={{ __html: `
             try {
-              const t = localStorage.getItem('milaf_theme');
-              if (t === 'light' || (!t && window.matchMedia('(prefers-color-scheme: light)').matches)) {
-                document.documentElement.classList.add('light');
-                document.documentElement.classList.remove('dark');
+              var t = localStorage.getItem('milaf_theme');
+              if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
               }
             } catch {}
           ` }} />
         </head>
-        <body className="min-h-[100dvh] bg-page text-primary overflow-hidden antialiased" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+        <body className="min-h-[100dvh] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden antialiased">
           {children}
         </body>
       </html>
