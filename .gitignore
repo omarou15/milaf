@@ -6,3 +6,5 @@ dist/
 *.env
 .turbo/
 .vercel/
+apps/api/package-lock.json
+apps/api/node_modules/
