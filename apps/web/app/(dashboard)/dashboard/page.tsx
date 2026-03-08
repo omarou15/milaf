@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { getBilling, getCreditsRemaining, PLANS } from "@/lib/billing/plans";
 
 interface Template { id: string; schema: { templateName: string; tier: string; fieldCount: number }; moduleId?: string; emoji?: string; createdAt: string; }
 interface Doc { id: string; filename: string; createdAt: string; }
@@ -11,11 +13,16 @@ const TIER_LABEL: Record<string, string> = { tier1_word: "T1 Word", tier2_pdf_fo
 export default function DashboardPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [docs, setDocs] = useState<Doc[]>([]);
+  const [billing, setBilling] = useState<ReturnType<typeof getBilling> | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
+    const b = getBilling();
+    setBilling(b);
+    if (!b.onboardingComplete) { router.replace("/onboarding"); return; }
     setTemplates(JSON.parse(localStorage.getItem("milaf_templates") || "[]"));
     setDocs(JSON.parse(localStorage.getItem("milaf_docs") || "[]"));
-  }, []);
+  }, [router]);
 
   const recentTemplates = [...templates].reverse().slice(0, 4);
   const recentDocs = [...docs].reverse().slice(0, 3);
