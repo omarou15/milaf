@@ -64,7 +64,7 @@ export default function LandingPage() {
           <p className="text-[#6b7290] text-lg sm:text-xl max-w-xl mx-auto mb-10 leading-relaxed fade-up delay-3" style={{ fontFamily: 'var(--font-body)' }}>
             Le document parfait en 30 secondes.
             <br className="hidden sm:block" />
-            Factures, contrats, baux, attestations — décrivez en français, téléchargez en .docx.
+            Factures, contrats, baux, attestations — décrivez en français, recevez votre document prêt à envoyer.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center fade-up delay-4">
@@ -106,7 +106,10 @@ export default function LandingPage() {
                     <div className="text-sm font-semibold text-white">Facture Dupont — Mars 2026</div>
                     <div className="text-[10px] text-[#6b7290]">Document complet avec TVA, mentions légales</div>
                   </div>
-                  <div className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg">⬇ .docx</div>
+                  <div className="flex gap-1.5">
+                    <div className="px-2.5 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg">⬇ .pdf</div>
+                    <div className="px-2.5 py-1.5 bg-indigo-600 text-white text-[10px] font-bold rounded-lg">⬇ .docx</div>
+                  </div>
                 </div>
               </div>
             </div>
