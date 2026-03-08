@@ -1,8 +1,7 @@
-import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { createServer } from "http";
+import { serve } from "@hono/node-server";
 import { Server as SocketServer } from "socket.io";
 
 import { pdfAnalyzeRouter } from "./routes/pdf-analyze";
@@ -21,11 +20,21 @@ app.route("/pdf/analyze", pdfAnalyzeRouter);
 app.route("/pdf/generate", pdfGenerateRouter);
 app.route("/claude", claudeRouter);
 
-// HTTP server (pour WebSocket)
-const httpServer = createServer();
+// Root
+app.get("/", (c) => c.json({ service: "milaf-api", status: "ok", version: "1.0.0" }));
 
-// Socket.io pour streaming résultats
-const io = new SocketServer(httpServer, {
+const PORT = parseInt(process.env.PORT || "4000");
+
+// Use @hono/node-server's serve() which returns the http.Server
+const server = serve({
+  fetch: app.fetch,
+  port: PORT,
+}, (info) => {
+  console.log(`🚀 Mi-Laf Engine API → http://localhost:${info.port}`);
+});
+
+// Attach Socket.io to the underlying http server
+const io = new SocketServer(server, {
   cors: { origin: "*" },
   path: "/ws",
 });
@@ -35,22 +44,10 @@ io.on("connection", (socket) => {
 
   socket.on("analyze-pdf", async (data) => {
     socket.emit("status", { step: "receiving", message: "PDF reçu, analyse en cours..." });
-    // Relayé vers le service Python
     socket.emit("status", { step: "done" });
   });
 
   socket.on("disconnect", () => {
     console.log(`[WS] Client déconnecté: ${socket.id}`);
   });
-});
-
-// Attacher Hono au serveur HTTP
-httpServer.on("request", (req, res) => {
-  // @ts-ignore
-  app.fetch(req, res);
-});
-
-const PORT = parseInt(process.env.PORT || "4000");
-httpServer.listen(PORT, () => {
-  console.log(`🚀 Mi-Laf Engine API → http://localhost:${PORT}`);
 });
