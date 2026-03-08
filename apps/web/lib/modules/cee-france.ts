@@ -57,6 +57,7 @@ const DEVIS_CEE: WordSchema = {
   ],
   groups: ["artisan", "bénéficiaire", "logement", "travaux", "devis"],
   rawBalises: [],
+  warnings: [],
 };
 DEVIS_CEE.fieldCount = DEVIS_CEE.fields.length;
 DEVIS_CEE.rawBalises = DEVIS_CEE.fields.map(f => f.balise);
@@ -85,6 +86,7 @@ const ATTESTATION_CEE: WordSchema = {
   ],
   groups: ["bénéficiaire", "logement", "travaux", "attestation"],
   rawBalises: [],
+  warnings: [],
 };
 ATTESTATION_CEE.fieldCount = ATTESTATION_CEE.fields.length;
 ATTESTATION_CEE.rawBalises = ATTESTATION_CEE.fields.map(f => f.balise);
@@ -121,6 +123,7 @@ const FACTURE_CEE: WordSchema = {
   ],
   groups: ["artisan", "facture", "client", "travaux", "produit", "montants"],
   rawBalises: [],
+  warnings: [],
 };
 FACTURE_CEE.fieldCount = FACTURE_CEE.fields.length;
 FACTURE_CEE.rawBalises = FACTURE_CEE.fields.map(f => f.balise);
@@ -157,6 +160,7 @@ const FOS_CEE: WordSchema = {
   ],
   groups: ["fiche", "entreprise", "bénéficiaire", "calendrier", "contrôle", "dépôt"],
   rawBalises: [],
+  warnings: [],
 };
 FOS_CEE.fieldCount = FOS_CEE.fields.length;
 FOS_CEE.rawBalises = FOS_CEE.fields.map(f => f.balise);
