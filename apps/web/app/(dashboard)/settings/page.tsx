@@ -41,21 +41,38 @@ export default function SettingsPage() {
       return;
     }
 
-    const priceId = cycle === "yearly" ? plan.stripePriceIdYearly : plan.stripePriceId;
-    const res = await fetch("/api/billing/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ priceId, planId, billingCycle: cycle, successUrl: `${window.location.origin}/settings?upgraded=1` }),
-    });
-    const data = await res.json();
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId, cycle }),
+      });
+      const data = await res.json();
 
-    if (data.demo || !data.url) {
-      // Demo mode
-      saveBilling({ ...billing, planId, creditsTotal: plan.credits, billingCycle: cycle });
+      if (data.url) {
+        // Stripe checkout — redirect
+        window.location.href = data.url;
+        return;
+      }
+
+      // Stripe not configured — demo mode (localStorage)
+      saveBilling({ ...billing, planId, creditsTotal: plan.credits, creditsUsed: 0, billingCycle: cycle });
       setBillingState(getBilling());
-    } else {
-      window.location.href = data.url;
+    } catch {
+      // Fallback demo mode
+      saveBilling({ ...billing, planId, creditsTotal: plan.credits, creditsUsed: 0, billingCycle: cycle });
+      setBillingState(getBilling());
     }
+    setUpgrading(null);
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const res = await fetch("/api/billing/portal", { method: "POST" });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch {}
+  };
     setUpgrading(null);
   };
 
@@ -126,6 +143,12 @@ export default function SettingsPage() {
                   <p className="text-xs text-red-400 mt-1.5">⚠ Il vous reste peu de crédits. Pensez à upgrader.</p>
                 )}
               </div>
+              {billing.planId !== "free" && (
+                <button onClick={handleManageSubscription}
+                  className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                  Gérer mon abonnement / Factures →
+                </button>
+              )}
             </div>
 
             {/* Billing cycle toggle */}
