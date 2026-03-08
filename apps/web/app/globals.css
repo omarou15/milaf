@@ -1,7 +1,20 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-:root { --brand: #3B5BDB; --accent: #4F46E5; --bg: #06070c; --surface: #0d0f18; }
+
+:root {
+  --brand: #3B5BDB;
+  --accent: #4F46E5;
+  --bg: #06070c;
+  --surface: #0d0f18;
+}
+
 * { box-sizing: border-box; }
+
+html, body {
+  background-color: #06070c;
+  color: #eceef5;
+}
+
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-thumb { background: #252a40; border-radius: 4px; }
