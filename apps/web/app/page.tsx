@@ -25,6 +25,14 @@ const FEATURES = [
     credits: "5 crédits",
     color: "#a16ef8",
   },
+  {
+    icon: "🧬",
+    tier: "Tier 4",
+    title: "Clone IA",
+    desc: "Uploadez n'importe quel document. Mi-Laf l'apprend pixel par pixel et le reproduit à l'infini.",
+    credits: "10 crédits",
+    color: "#f59e0b",
+  },
 ];
 
 const USECASES = [
@@ -96,10 +104,10 @@ export default function LandingPage() {
       {/* 3 Tiers */}
       <section className="px-6 pb-24 max-w-6xl mx-auto">
         <div className="text-center mb-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">3 niveaux de puissance</h2>
-          <p className="text-[#6b7290]">Du simple Word balisé à la vision IA pour tout document figé.</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">4 niveaux de puissance</h2>
+          <p className="text-[#6b7290]">Du simple Word balisé au clonage IA de n'importe quel document.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {FEATURES.map(f => (
             <div key={f.tier}
               className="p-6 bg-[#0d0f18] border border-[#1e2235] rounded-2xl relative overflow-hidden group hover:border-[#2a2f48] transition-all">

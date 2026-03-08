@@ -8,6 +8,7 @@ import { getBilling, getCreditsRemaining, PLANS } from "@/lib/billing/plans";
 const NAV = [
   { href: "/dashboard",    icon: "⊡", label: "Dashboard" },
   { href: "/chat",         icon: "✦", label: "IA Chat", badge: "NEW" },
+  { href: "/clone",        icon: "🧬", label: "Clone IA", badge: "T4" },
   { href: "/templates",    icon: "◈", label: "Templates" },
   { href: "/generate",     icon: "⚡", label: "Générer" },
   { href: "/automations",  icon: "⟳", label: "Automatisations" },
