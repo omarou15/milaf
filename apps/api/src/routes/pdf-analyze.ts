@@ -8,29 +8,42 @@ export const pdfAnalyzeRouter = new Hono();
 
 /**
  * POST /pdf/analyze
- * Body: multipart form-data avec le fichier PDF
- * Retourne: coordonnées, couleurs, textes extraits par PyMuPDF
+ * Accepts EITHER:
+ *   - multipart form-data with "file" field (File)
+ *   - JSON body with { pdfBase64: string, filename?: string }
+ * Returns: PyMuPDF analysis (coordinates, colors, text blocks, shapes)
  */
 pdfAnalyzeRouter.post("/", async (c) => {
   try {
-    const body = await c.req.parseBody();
-    const file = body["file"] as File;
+    const contentType = c.req.header("content-type") || "";
+    let tmpPdf: string;
 
-    if (!file) {
-      return c.json({ error: "Fichier PDF manquant" }, 400 as any);
+    if (contentType.includes("multipart/form-data")) {
+      // Multipart file upload
+      const body = await c.req.parseBody();
+      const file = body["file"] as File;
+      if (!file) {
+        return c.json({ error: "Fichier PDF manquant (champ 'file')" }, 400 as any);
+      }
+      tmpPdf = path.join(os.tmpdir(), `milaf_${Date.now()}.pdf`);
+      const arrayBuffer = await file.arrayBuffer();
+      fs.writeFileSync(tmpPdf, Buffer.from(arrayBuffer));
+    } else {
+      // JSON with base64
+      const { pdfBase64 } = await c.req.json();
+      if (!pdfBase64) {
+        return c.json({ error: "pdfBase64 manquant" }, 400 as any);
+      }
+      tmpPdf = path.join(os.tmpdir(), `milaf_${Date.now()}.pdf`);
+      // Handle data URL prefix if present
+      const raw = pdfBase64.replace(/^data:application\/pdf;base64,/, "");
+      fs.writeFileSync(tmpPdf, Buffer.from(raw, "base64"));
     }
 
-    // Sauvegarder le PDF temporairement
-    const tmpDir = os.tmpdir();
-    const tmpPdf = path.join(tmpDir, `milaf_${Date.now()}.pdf`);
-    const arrayBuffer = await file.arrayBuffer();
-    fs.writeFileSync(tmpPdf, Buffer.from(arrayBuffer));
-
-    // Lancer le script Python PyMuPDF
     const result = await runPythonAnalysis(tmpPdf);
 
-    // Nettoyer
-    fs.unlinkSync(tmpPdf);
+    // Cleanup
+    try { fs.unlinkSync(tmpPdf); } catch {}
 
     return c.json(result);
   } catch (err: any) {
@@ -42,14 +55,12 @@ pdfAnalyzeRouter.post("/", async (c) => {
 /**
  * POST /pdf/analyze/url
  * Body: { url: string }
- * Analyse un PDF depuis une URL (ex: R2 Cloudflare)
  */
 pdfAnalyzeRouter.post("/url", async (c) => {
   try {
     const { url } = await c.req.json();
     if (!url) return c.json({ error: "URL manquante" }, 400 as any);
 
-    // Télécharger le PDF
     const response = await fetch(url);
     const buffer = Buffer.from(await response.arrayBuffer());
 
@@ -57,7 +68,7 @@ pdfAnalyzeRouter.post("/url", async (c) => {
     fs.writeFileSync(tmpPdf, buffer);
 
     const result = await runPythonAnalysis(tmpPdf);
-    fs.unlinkSync(tmpPdf);
+    try { fs.unlinkSync(tmpPdf); } catch {}
 
     return c.json(result);
   } catch (err: any) {
@@ -65,11 +76,25 @@ pdfAnalyzeRouter.post("/url", async (c) => {
   }
 });
 
-// ── Service Python PyMuPDF ────────────────────────────────────────────────────
+// ── Python runner ─────────────────────────────────────────────────────────────
 
-function runPythonAnalysis(pdfPath: string): Promise<PDFAnalysisResult> {
+function runPythonAnalysis(pdfPath: string): Promise<any> {
   return new Promise((resolve, reject) => {
-    const scriptPath = path.join(__dirname, "../services/pdf_analyzer.py");
+    // Try multiple paths for the Python script
+    const candidates = [
+      path.join(__dirname, "../services/pdf_analyzer.py"),
+      path.join(__dirname, "../../src/services/pdf_analyzer.py"),
+      path.join(process.cwd(), "src/services/pdf_analyzer.py"),
+      path.join(process.cwd(), "dist/services/pdf_analyzer.py"),
+    ];
+
+    let scriptPath = candidates[0];
+    for (const c of candidates) {
+      if (fs.existsSync(c)) { scriptPath = c; break; }
+    }
+
+    console.log(`[PyMuPDF] Using script: ${scriptPath}`);
+    console.log(`[PyMuPDF] Analyzing: ${pdfPath} (${fs.statSync(pdfPath).size} bytes)`);
 
     const py = spawn("python3", [scriptPath, pdfPath]);
     let output = "";
@@ -80,59 +105,17 @@ function runPythonAnalysis(pdfPath: string): Promise<PDFAnalysisResult> {
 
     py.on("close", (code) => {
       if (code !== 0) {
-        reject(new Error(`Python error: ${error}`));
+        console.error(`[PyMuPDF] Error (code ${code}):`, error);
+        reject(new Error(`Python error: ${error.slice(0, 500)}`));
         return;
       }
       try {
-        resolve(JSON.parse(output));
+        const parsed = JSON.parse(output);
+        console.log(`[PyMuPDF] Success: ${parsed.page_count} pages, ${parsed.pages?.[0]?.text_blocks?.length || 0} text blocks`);
+        resolve(parsed);
       } catch {
         reject(new Error(`Invalid JSON from Python: ${output.slice(0, 200)}`));
       }
     });
   });
-}
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface PDFAnalysisResult {
-  page_count: number;
-  page_width: number;
-  page_height: number;
-  pages: PageAnalysis[];
-}
-
-export interface PageAnalysis {
-  page_number: number;
-  text_blocks: TextBlock[];
-  vector_shapes: VectorShape[];
-  images: ImageInfo[];
-  colors: ColorInfo[];
-}
-
-export interface TextBlock {
-  text: string;
-  x: number; y: number; w: number; h: number;
-  font: string; size: number;
-  color_rgb: [number, number, number];
-  bold: boolean; italic: boolean;
-}
-
-export interface VectorShape {
-  index: number;
-  x: number; y: number; w: number; h: number;
-  fill_rgb: [number, number, number] | null;
-  stroke_rgb: [number, number, number] | null;
-  stroke_width: number;
-}
-
-export interface ImageInfo {
-  xref: number; width: number; height: number;
-  ext: string; size_bytes: number;
-}
-
-export interface ColorInfo {
-  rgb: [number, number, number];
-  hex: string;
-  usage_count: number;
-  context: string;
 }

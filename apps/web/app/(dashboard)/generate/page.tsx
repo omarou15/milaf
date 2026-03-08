@@ -8,8 +8,8 @@ import type { PixelPerfectSchema, PixelPerfectField } from "@/lib/engine/pixel-p
 type AnySchema = WordSchema | PdfSchema | PixelPerfectSchema;
 interface StoredTemplate { id: string; schema: AnySchema; templateB64: string; tier?: string; originalPdfB64?: string; createdAt: string; }
 
-const TIER_COLORS: Record<string,string> = { tier1_word:"#3B5BDB", tier2_pdf_form:"#2ee8c8", tier3_pixel:"#a16ef8" };
-const TIER_LABELS: Record<string,string> = { tier1_word:"Word T1", tier2_pdf_form:"PDF T2", tier3_pixel:"Pixel T3 ✦" };
+const TIER_COLORS: Record<string,string> = { tier1_word:"#3B5BDB", tier2_pdf_form:"#2ee8c8", tier3_pixel:"#a16ef8", tier4_clone:"#f59e0b" };
+const TIER_LABELS: Record<string,string> = { tier1_word:"Word T1", tier2_pdf_form:"PDF T2", tier3_pixel:"Pixel T3 ✦", tier4_clone:"Clone T4 🧬" };
 
 function isWordSchema(s: AnySchema): s is WordSchema { return (s as any).tier === "tier1_word"; }
 function isPdfSchema(s: AnySchema): s is PdfSchema { return (s as any).tier === "tier2_pdf_form"; }

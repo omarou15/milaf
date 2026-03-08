@@ -22,6 +22,9 @@ COPY src/ ./src/
 # Build TypeScript
 RUN npx tsc
 
+# Copy Python scripts to dist (tsc doesn't handle .py files)
+RUN mkdir -p dist/services && cp src/services/*.py dist/services/
+
 # Expose port
 EXPOSE ${PORT:-4000}
 
