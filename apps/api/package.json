@@ -1,0 +1,23 @@
+{
+  "name": "@milaf/api",
+  "version": "1.0.0",
+  "description": "Mi-Laf Engine — PDF analysis, generation, Claude proxy",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "install-python": "pip3 install pymupdf --break-system-packages"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "hono": "^4.6.3",
+    "pdf-lib": "^1.17.1",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
