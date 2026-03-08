@@ -7,8 +7,9 @@ import { getBilling, getCreditsRemaining, PLANS } from "@/lib/billing/plans";
 
 const NAV = [
   { href: "/dashboard",    icon: "⊡", label: "Dashboard" },
+  { href: "/chat",         icon: "✦", label: "IA Chat", badge: "NEW" },
   { href: "/templates",    icon: "◈", label: "Templates" },
-  { href: "/generate",     icon: "✦", label: "Générer" },
+  { href: "/generate",     icon: "⚡", label: "Générer" },
   { href: "/automations",  icon: "⟳", label: "Automatisations" },
   { href: "/marketplace",  icon: "⊞", label: "Marketplace" },
   { href: "/settings",     icon: "⚙", label: "Paramètres" },
@@ -56,7 +57,8 @@ export function Sidebar() {
               <Link key={n.href} href={n.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${active ? "bg-indigo-600/15 text-indigo-400 border border-indigo-500/20" : "text-[#6b7290] hover:text-white hover:bg-white/5 border border-transparent"}`}>
                 <span className="text-base w-5 text-center">{n.icon}</span>
-                {n.label}
+                <span className="flex-1">{n.label}</span>
+                {(n as any).badge && <span className="text-[9px] font-bold px-1.5 py-0.5 bg-indigo-600 text-white rounded-full">{(n as any).badge}</span>}
               </Link>
             );
           })}
