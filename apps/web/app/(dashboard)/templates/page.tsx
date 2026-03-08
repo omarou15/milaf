@@ -3,110 +3,89 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { WordSchema } from "@/lib/engine/word-ingestion";
 
-interface StoredTemplate {
-  id: string;
-  schema: WordSchema;
-  templateB64: string;
-  createdAt: string;
-}
+interface StoredTemplate { id: string; schema: WordSchema; templateB64: string; createdAt: string; }
 
-const TIER_LABELS: Record<string, { label: string; color: string; icon: string }> = {
-  tier1_word:     { label: "Word Tier 1", color: "text-blue-400 bg-blue-400/10 border-blue-400/20", icon: "◈" },
-  tier2_pdf_form: { label: "PDF Tier 2",  color: "text-purple-400 bg-purple-400/10 border-purple-400/20", icon: "◉" },
-  tier3_pixel:    { label: "Pixel Tier 3",color: "text-amber-400 bg-amber-400/10 border-amber-400/20", icon: "◆" },
-};
+const TIER_COLORS: Record<string,string> = { tier1_word:"#3B5BDB", tier2_pdf_form:"#2ee8c8", tier3_pixel:"#a16ef8" };
+const TIER_LABELS: Record<string,string> = { tier1_word:"Word · Tier 1", tier2_pdf_form:"PDF Form · Tier 2", tier3_pixel:"Pixel Perfect · Tier 3" };
+const TIER_CREDITS: Record<string,number> = { tier1_word:1, tier2_pdf_form:2, tier3_pixel:5 };
 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<StoredTemplate[]>([]);
+  const [deleteId, setDeleteId] = useState<string|null>(null);
 
   useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem("milaf_templates") || "[]");
-      setTemplates(stored);
-    } catch {}
+    setTemplates(JSON.parse(localStorage.getItem("milaf_templates") || "[]"));
   }, []);
 
-  const deleteTemplate = (id: string) => {
+  function handleDelete(id: string) {
     const updated = templates.filter(t => t.id !== id);
     setTemplates(updated);
     localStorage.setItem("milaf_templates", JSON.stringify(updated));
-  };
+    setDeleteId(null);
+  }
 
   return (
     <div className="p-6 md:p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">Templates</h1>
-          <p className="text-[#6b7290] text-sm mt-1">
-            {templates.length > 0 ? `${templates.length} template${templates.length > 1 ? "s" : ""} configuré${templates.length > 1 ? "s" : ""}` : "Gérez vos modèles de documents"}
-          </p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Templates</h1>
+          <p className="text-[#6b7290] text-sm mt-1">{templates.length} template{templates.length!==1?"s":""} · Doc Engine Tier 1/2/3</p>
         </div>
-        <Link href="/templates/new" className="px-4 py-2 bg-[#3B5BDB] hover:bg-[#3451c7] text-white rounded-xl text-sm font-semibold transition-colors flex items-center gap-2">
+        <Link href="/templates/new" className="flex items-center gap-2 px-4 py-2.5 bg-[#3B5BDB] hover:bg-[#3451c7] text-white rounded-xl text-sm font-semibold transition-all shadow-[0_0_20px_rgba(59,91,219,0.25)]">
           <span>+</span> Nouveau template
         </Link>
       </div>
 
       {templates.length === 0 ? (
         <div className="border border-dashed border-[#1e2235] rounded-2xl p-16 text-center">
-          <div className="text-5xl mb-4 opacity-30">◈</div>
+          <div className="w-14 h-14 rounded-2xl bg-[#0d0f18] border border-[#181c2c] flex items-center justify-center text-2xl mx-auto mb-5">◈</div>
           <div className="text-white font-semibold mb-2">Aucun template</div>
-          <p className="text-[#6b7290] text-sm mb-6 max-w-sm mx-auto">
-            Uploadez un document Word balisé <code className="text-[#3B5BDB] text-xs bg-[#3B5BDB]/10 px-1.5 py-0.5 rounded">{"{{champs}}"}</code> pour créer votre premier template
-          </p>
-          <Link href="/templates/new" className="inline-flex px-5 py-2.5 bg-[#3B5BDB] hover:bg-[#3451c7] text-white rounded-xl text-sm font-semibold transition-colors">
-            Créer mon premier template
-          </Link>
+          <p className="text-[#6b7290] text-sm mb-6 max-w-xs mx-auto">Uploadez un Word balisé <code className="text-[#3B5BDB] bg-[#3B5BDB]/10 px-1.5 py-0.5 rounded text-xs">{"{{champ}}"}</code> pour démarrer</p>
+          <Link href="/templates/new" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#3B5BDB] hover:bg-[#3451c7] text-white rounded-xl text-sm font-semibold transition-colors">Créer mon premier template →</Link>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {templates.map(t => {
-            const tier = TIER_LABELS[t.schema.tier] ?? TIER_LABELS.tier1_word;
-            const groups = t.schema.groups ?? [];
+            const color = TIER_COLORS[t.schema.tier] ?? "#3B5BDB";
+            const credits = TIER_CREDITS[t.schema.tier] ?? 1;
+            const date = new Date(t.createdAt).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"});
             return (
-              <div key={t.id} className="group bg-[#0d0f18] border border-[#1e2235] hover:border-[#3B5BDB]/40 rounded-2xl p-5 transition-all duration-200">
+              <div key={t.id} className="group relative bg-[#0d0f18] border border-[#181c2c] hover:border-[#252a40] rounded-2xl p-5 transition-all duration-200">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-white truncate mb-1">{t.schema.templateName}</h3>
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border ${tier.color}`}>
-                      <span>{tier.icon}</span> {tier.label}
-                    </span>
+                  <div className="text-xs font-semibold px-2.5 py-1 rounded-lg" style={{color,background:`${color}18`}}>{TIER_LABELS[t.schema.tier]??t.schema.tier}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-[#6b7290]">{credits} crédit{credits>1?"s":""}</span>
+                    <button onClick={()=>setDeleteId(t.id)} className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-lg hover:bg-red-900/30 flex items-center justify-center text-[#6b7290] hover:text-red-400">×</button>
                   </div>
-                  <button
-                    onClick={() => deleteTemplate(t.id)}
-                    className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg bg-red-950/30 hover:bg-red-950/60 text-red-500 text-xs flex items-center justify-center transition-all ml-2 shrink-0"
-                    title="Supprimer"
-                  >
-                    ✕
-                  </button>
                 </div>
-
-                <div className="flex items-center gap-4 text-xs text-[#6b7290] mb-4">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#3B5BDB]"></span>
-                    {t.schema.fieldCount} champ{t.schema.fieldCount > 1 ? "s" : ""}
-                  </span>
-                  {groups.length > 0 && (
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                      {groups.slice(0, 2).join(", ")}{groups.length > 2 ? ` +${groups.length - 2}` : ""}
-                    </span>
-                  )}
+                <h3 className="text-white font-semibold mb-1 truncate">{t.schema.templateName}</h3>
+                <p className="text-[#6b7290] text-xs mb-4">{t.schema.fieldCount} champs · {t.schema.groups.join(", ")}</p>
+                <div className="flex flex-wrap gap-1.5 mb-5">
+                  {t.schema.rawBalises.slice(0,4).map(b=>(
+                    <span key={b} className="text-xs px-2 py-0.5 bg-[#141624] border border-[#1e2235] rounded-md text-[#9ca3af] font-mono">{`{{${b}}}`}</span>
+                  ))}
+                  {t.schema.rawBalises.length>4&&<span className="text-xs text-[#3a3f5c]">+{t.schema.rawBalises.length-4}</span>}
                 </div>
-
-                <div className="flex gap-2">
-                  <Link
-                    href={`/generate?id=${t.id}`}
-                    className="flex-1 py-2 bg-[#3B5BDB]/10 hover:bg-[#3B5BDB]/20 text-[#3B5BDB] rounded-lg text-xs font-semibold text-center transition-colors"
-                  >
-                    Générer →
-                  </Link>
-                  <span className="py-2 px-3 bg-[#141624] text-[#6b7290] rounded-lg text-xs">
-                    {new Date(t.createdAt).toLocaleDateString("fr-FR")}
-                  </span>
+                <div className="flex gap-2 items-center">
+                  <Link href={`/generate?id=${t.id}`} className="flex-1 text-center px-3 py-2 rounded-xl text-sm font-semibold transition-all" style={{background:`${color}22`,border:`1px solid ${color}44`,color}}>Générer →</Link>
+                  <div className="text-xs text-[#3a3f5c]">{date}</div>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {deleteId && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0d0f18] border border-[#1e2235] rounded-2xl p-6 w-full max-w-sm">
+            <h3 className="text-white font-semibold mb-2">Supprimer ce template ?</h3>
+            <p className="text-[#6b7290] text-sm mb-6">Cette action est irréversible.</p>
+            <div className="flex gap-3">
+              <button onClick={()=>setDeleteId(null)} className="flex-1 px-4 py-2.5 border border-[#1e2235] text-[#9ca3af] hover:text-white rounded-xl text-sm font-semibold transition-colors">Annuler</button>
+              <button onClick={()=>handleDelete(deleteId)} className="flex-1 px-4 py-2.5 bg-red-900/30 border border-red-800/40 text-red-400 rounded-xl text-sm font-semibold transition-colors">Supprimer</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
